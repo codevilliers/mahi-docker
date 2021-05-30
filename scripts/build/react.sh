@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Copy the yarn.lock file from the codebase into the React Docker folder
+# Copy the package-lock.json file from the codebase into the React Docker folder
 cp codebase/mahi-frontend/package.json react/
-cp codebase/mahi-frontend/yarn.lock react/
+cp codebase/mahi-frontend/package-lock.json react/
 
 # Set the build argument IMAGETYPE to --prod
 IMAGETYPE='--prod'
@@ -24,4 +24,4 @@ docker build \
     .
     
 rm package.json
-rm yarn.lock
+rm package-lock.json

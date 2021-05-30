@@ -13,10 +13,10 @@ WORKDIR /
 # Copy the package-lock file over to the container
 # This command implies an image rebuild when npm dependencies change
 COPY ./package.json ./package.json
-COPY ./yarn.lock ./yarn.lock
+COPY ./package-lock.json ./package-lock.json
 
 # Install dependenices from the file package.lock
-RUN yarn install
+RUN npm install
 
 # Add some terminal jazz
 RUN echo "PS1='docker@\$NAME:\w\$ '" >> /etc/bash.bashrc
