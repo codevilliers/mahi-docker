@@ -1,0 +1,176 @@
+# The version of the docker-compose standard being followed here
+version: '3.4'
+
+# Services are groups of containers handling one aspect of the application
+services:
+  database: # PostgreSQL
+    # Use the PostgreSQL image we made ourselves by running ./scripts/build/postgres.sh
+    image: postgres:latest
+
+    # No matter what, if the container stops, start it again
+    restart: always
+
+    # Expose the port 5432 used by PostgreSQL to other containers
+    expose:
+    - "5432"
+
+    # Run the container as the non-root user
+    user: postgres
+
+    # Set the environment variables
+    env_file:
+    - postgres/database.env
+
+    # Mount the volumes on the database container
+    volumes:
+      # Mount 'database' as the place where PostgreSQL stores all its data
+    - type: volume
+      source: database
+      target: /var/lib/postgresql/data
+      read_only: false
+
+    # Connect to the custom default network
+    networks:
+    - network
+
+  production-server:
+    # Use the Django image we made ourselves by running ./scripts/build/django.sh
+    image: mahi-django:latest
+
+    # No matter what, if the container stops, start it again
+    restart: always
+
+    # Expose the ports 8000 used by Gunicorn to other containers
+    expose:
+    - "8000"
+
+    # Run the container as the non-root user
+    user: django
+
+    command: ["supervisord", "-c", "/supervisord.conf"]
+
+    # Mount the volumes on the Django container
+    volumes:
+      # Mount the code from the 'mahi_care' folder in the root of the container 
+    - type: bind
+      source: ./codebase/mahi-backend/mahi_care
+      target: /mahi_care
+      read_only: true
+
+      # Mount the YAML files from the 'configurations' folder in the root of the container
+    - type: bind
+      source: ./codebase/mahi-backend/configurations
+      target: /configurations
+      read_only: true
+      
+      # Mount 'media_files' as its namesake in the root of the container
+    - type: volume
+      source: media_files
+      target: /media_files
+      read_only: false
+
+      # Mount 'static_files' as its namesake in the root of the container
+    - type: volume
+      source: static_files
+      target: /static_files
+      read_only: false
+
+      # Mount 'supervisor.d' as its namesake in the root of the container
+    - type: volume
+      source: supervisor.d
+      target: /supervisor.d
+      read_only: false
+
+      # Mount 'web_server_logs' as its namesake in the root of the container
+    - type: volume
+      source: web_server_logs
+      target: /web_server_logs
+      read_only: false
+
+    # The services that need to be ready before this one
+    depends_on:
+    - database
+
+    # Connect to the custom default network
+    networks:
+    - network
+
+  reverse-proxy: # NGINX
+    # Use the NGINX image we made ourselves by running ./scripts/build/nginx.sh
+    image: mahi-nginx:latest
+
+    # No matter what, if the container stops, start it again
+    restart: always
+
+    # Expose the port 80 and 443 used by NGINX to other containers
+    expose:
+    - "80"
+    - "443"
+
+    # Expose the ports 80 and 443 used by NGINX to the host
+    ports:
+    - "61000:80"
+    - "61001:443"
+
+    # Mount the volumes on the NGINX container
+    volumes:
+
+      # Mount 'build' as 'frontend' in the root of the container
+    - type: bind
+      source: ./codebase/mahi-frontend/build
+      target: /frontend
+      read_only: true
+
+    # Mount 'static_files' as its namesake in the root of the container
+    - type: volume
+      source: static_files
+      target: /static_files
+      read_only: true
+
+      # Mount 'media_files' as its namesake in the root of the container
+    - type: volume
+      source: media_files
+      target: /media_files
+      read_only: true
+
+      # Mount 'reverse_proxy_logs' as its namesake in the root of the container
+    - type: volume
+      source: reverse_proxy_logs
+      target: /reverse_proxy_logs
+      read_only: false
+
+    # The services that need to be ready before this one
+    depends_on:
+    - production-server
+
+    # Connect to the custom default network
+    networks:
+    - network
+
+# Volumes are virtual drives connected to containers
+volumes:
+  # This volume contains the database and PostgreSQL configuration files
+  database:
+  # This volume contains periodic dumps of the database for backup
+  database_backup:
+
+  # This volume contains reverse proxy logs
+  reverse_proxy_logs:
+  # This volume contains web server logs
+  web_server_logs:
+
+  # This volume contains the media files
+  media_files:
+  # This volume contains periodic dumps of the media files for backup
+  media_files_backup:
+
+  # This volume contains the static files
+  static_files:
+
+  # This volume contains the supervisor.d conf files
+  supervisor.d:
+
+# Networks specify how containers communicate with each other and the host
+networks:
+  # Create a network to override Docker's ambiguously named default
+  network:
